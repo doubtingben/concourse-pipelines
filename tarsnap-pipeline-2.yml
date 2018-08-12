@@ -1,0 +1,36 @@
+resources:
+- name: container-repo
+  type: git
+  source:
+    uri: https://github.com/doubtingben/containers.git
+    branch: master
+
+- name: tarsnap-image
+  type: docker-image
+  source:
+    email: ((docker-hub-email))
+    username: ((docker-hub-username))
+    password: ((docker-hub-password))
+    repository: ((docker-hub-username))/tarsnap
+
+jobs:
+- name: tarsnap build, publish, and test
+  public: true
+  plan:
+  - get: container-repo
+    trigger: true
+  - put: tarsnap-image
+    params:
+      build: container-repo/tarsnap
+  - task: run tests
+    config:
+      platform: linux
+      image_resource:
+        type: docker-image
+        source:
+          repository: ((docker-hub-username))/tarsnap
+      run:
+        path: /usr/bin/tarsnap
+        args: ["--help"]
+      params:
+        NAME: ((docker-hub-username))

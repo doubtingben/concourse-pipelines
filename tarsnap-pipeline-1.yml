@@ -1,0 +1,24 @@
+resources:
+- name: container-repo
+  type: git
+  source:
+    uri: https://github.com/doubtingben/containers.git
+    branch: master
+
+- name: tarsnap-image
+  type: docker-image
+  source:
+    email: ((docker-hub-email))
+    username: ((docker-hub-username))
+    password: ((docker-hub-password))
+    repository: ((docker-hub-username))/tarsnap
+
+jobs:
+- name: tarsnap build and publish
+  public: true
+  plan:
+  - get: container-repo
+    trigger: true
+  - put: tarsnap-image
+    params:
+      build: container-repo/tarsnap

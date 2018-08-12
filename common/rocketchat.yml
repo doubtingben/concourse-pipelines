@@ -1,0 +1,43 @@
+resource_types:
+  - name: http-api
+    type: docker-image
+    source:
+      repository: aequitas/http-api-resource
+      tag: latest
+
+resources:
+    - name: test-post
+      type: http-api
+      source:
+          uri: http://localhost:9090
+          method: POST
+          headers:
+              Authorization: "Bearer {test_post_token}"
+          json:
+              color: "{color}"
+              message: "Build {BUILD_PIPELINE_NAME}{BUILD_JOB_NAME}, nr: {BUILD_NAME} {message}!"
+          test_post_token: ((test_post_token))
+
+resources:
+- name: container-repo
+  type: git
+  source:
+    uri: https://github.com/doubtingben/containers.git
+    branch: master
+
+jobs:
+    - name: Test and notify
+      plan:
+          - get: container-repo
+          - task: build
+            file: container-repo/test.yml
+            on_success:
+                put: test-post
+                params:
+                    color: green
+                    message: was a success
+            on_failure:
+                put: test-post
+                params:
+                    color: red
+                    message: failed horribly
