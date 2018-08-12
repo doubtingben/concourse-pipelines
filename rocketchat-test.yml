@@ -1,0 +1,44 @@
+resource_types:
+  - name: http-api
+    type: docker-image
+    source:
+      repository: aequitas/http-api-resource
+      tag: latest
+
+resources:
+  - name: rocketchat
+    type: http-api
+    source:
+      uri: http://rocketchat:3000/hooks/NLWQLkky2cos4F4e2/xeSGAcHS72nyNZ68XFCCFmKzAy3K6KF6H5CqPoRXmNRHjoRQ
+      method: POST
+      json:
+        attachments:
+          - title: "Concourse: {BUILD_PIPELINE_NAME}{BUILD_JOB_NAME}"
+            author_name: "Concourse"
+            author_icon: "https://avatars3.githubusercontent.com/u/7809479?s=200&v=4"
+            text: "Build #: {BUILD_NAME} message: {message}!"
+            color: "{color}"
+
+jobs:
+  - name: Test and notify
+    plan:
+    - task: hello-world
+      config:
+        platform: linux
+        image_resource:
+          type: docker-image
+          source: {repository: busybox}
+        run:
+          path: echo
+          args:
+          - hello world          
+      on_success:
+        put: rocketchat
+        params:
+          color: green
+          message: was a success
+      on_failure:
+        put: rocketchat
+        params:
+          color: red
+          message: failed horribly
