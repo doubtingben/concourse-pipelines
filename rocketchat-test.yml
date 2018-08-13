@@ -9,7 +9,7 @@ resources:
   - name: rocketchat
     type: http-api
     source:
-      uri: http://rocketchat:3000/hooks/NLWQLkky2cos4F4e2/xeSGAcHS72nyNZ68XFCCFmKzAy3K6KF6H5CqPoRXmNRHjoRQ
+      uri: ((rocketchat_uri))
       method: POST
       json:
         attachments:
@@ -31,7 +31,7 @@ jobs:
         run:
           path: echo
           args:
-          - hello world          
+          - hello world
       on_success:
         put: rocketchat
         params:
