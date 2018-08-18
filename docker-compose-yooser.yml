@@ -1,0 +1,97 @@
+version: '3'
+
+services:
+  concourse-db:
+    image: postgres
+    environment:
+    - POSTGRES_DB=concourse
+    - POSTGRES_PASSWORD=concourse_pass
+    - POSTGRES_USER=concourse_user
+    - PGDATA=/database
+
+  concourse:
+    image: concourse/concourse:3.11.0
+    command: quickstart
+    privileged: true
+    depends_on: [concourse-db]
+    environment:
+    - CONCOURSE_POSTGRES_HOST=concourse-db
+    - CONCOURSE_POSTGRES_USER=concourse_user
+    - CONCOURSE_POSTGRES_PASSWORD=concourse_pass
+    - CONCOURSE_POSTGRES_DATABASE=concourse
+    - CONCOURSE_EXTERNAL_URL=https://concourse.yooser.org
+    - CONCOURSE_BASIC_AUTH_USERNAME=bwilson
+    - CONCOURSE_BASIC_AUTH_PASSWORD=${CONCOURSE_BWILSON_PASSWORD}
+    - CONCOURSE_WORKER_GARDEN_NETWORK
+    - CONCOURSE_VAULT_URL=http://vault:8200/
+    - CONCOURSE_VAULT_PATH_PREFIX=/concourse
+    - CONCOURSE_VAULT_CLIENT_TOKEN=rootToken-3434342
+    networks:
+      - web
+      - default
+    labels:
+      - "traefik.docker.network=web"
+      - "traefik.enable=true"
+      - "traefik.concourse-web.frontend.rule=Host:concourse.yooser.org"
+      - "traefik.concourse-web.port=8080"
+      - "traefik.concourse-web.protocol=http"
+
+  vault:
+    image: vault
+    cap_add: ["IPC_LOCK"]
+    environment:
+    - VAULT_DEV_ROOT_TOKEN_ID=rootToken-3434342
+    - VAULT_DEV_LISTEN_ADDRESS=0.0.0.0:8200
+
+  rocketchat:
+    image: rocketchat/rocket.chat:latest
+    restart: unless-stopped
+    volumes:
+      - ./uploads:/app/uploads
+    environment:
+      - PORT=3000
+      - ROOT_URL=http://localhost:3000
+      - MONGO_URL=mongodb://mongo:27017/rocketchat
+      - MONGO_OPLOG_URL=mongodb://mongo:27017/local
+      - MAIL_URL=smtp://smtp.email
+    depends_on:
+      - mongo
+
+  mongo:
+    image: mongo:3.2
+    restart: unless-stopped
+    volumes:
+     - ./data/db:/data/db
+    command: mongod --smallfiles --oplogSize 128 --replSet rs0 --storageEngine=mmapv1
+
+  mongo-init-replica:
+    image: mongo:3.2
+    command: 'mongo mongo/rocketchat --eval "rs.initiate({ _id: ''rs0'', members: [ { _id: 0, host: ''localhost:27017'' } ]})"'
+    depends_on:
+      - mongo
+
+  hubot:
+    image: rocketchat/hubot-rocketchat:latest
+    restart: unless-stopped
+    environment:
+      - ROCKETCHAT_URL=rocketchat:3000
+      - ROCKETCHAT_ROOM=GENERAL
+      - ROCKETCHAT_USER=bot
+      - ROCKETCHAT_PASSWORD=botpassword
+      - BOT_NAME=bot
+      - EXTERNAL_SCRIPTS=hubot-help,hubot-seen,hubot-links,hubot-diagnostics
+    depends_on:
+      - rocketchat
+    volumes:
+      - ./scripts:/home/hubot/scripts
+
+  admin:
+    image: ubuntu
+    restart: unless-stopped
+    command: sleep infinity
+    volumes:
+      - ./:/code
+
+networks:
+  web:
+    external: true
