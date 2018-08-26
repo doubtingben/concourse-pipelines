@@ -5,7 +5,7 @@ resources:
     uri: https://github.com/doubtingben/containers.git
     branch: master
 
-- name: tarsnap-image
+- name: tarsnap-image-dockerhub
   type: docker-image
   source:
     email: ((docker-hub-email))
@@ -13,12 +13,23 @@ resources:
     password: ((docker-hub-password))
     repository: ((docker-hub-username))/tarsnap
 
+- name: tarsnap-image-gitlab
+  type: docker-image
+  source:
+    email: ((gitlab-email))
+    username: ((gitlab-username))
+    password: ((gitlab-password))
+    repository: registry.gitlab.com/((gitlab-username))/tarsnap
+
 jobs:
 - name: tarsnap build and publish
   public: true
   plan:
   - get: container-repo
     trigger: true
-  - put: tarsnap-image
+  - put: tarsnap-image-dockerhub
+    params:
+      build: container-repo/tarsnap
+  - put: tarsnap-image-gitlab
     params:
       build: container-repo/tarsnap
