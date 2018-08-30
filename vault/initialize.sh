@@ -2,7 +2,7 @@
 
 set -euxo pipefail
 
-export VAULT_TOKEN=rootToken-3434342
+export VAULT_TOKEN=${CONCOURSE_VAULT_DEV_ROOT_TOKEN_ID}
 export VAULT_ADDR=http://vault:8200
 vault policy write concourse policies/concourse.hcl
 vault secrets enable -path=concourse kv

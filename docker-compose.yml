@@ -8,40 +8,48 @@ services:
     - POSTGRES_PASSWORD=concourse_pass
     - POSTGRES_USER=concourse_user
     - PGDATA=/database
+    volumes:
+      - ./data/postgres/pgdata:/database
 
   concourse:
-    image: concourse/concourse:3.11.0
-    command: quickstart
+    image: concourse/concourse:latest
+    command: web
     privileged: true
     depends_on: [concourse-db]
-    ports: ["8080:8080"]
     environment:
     - CONCOURSE_POSTGRES_HOST=concourse-db
     - CONCOURSE_POSTGRES_USER=concourse_user
     - CONCOURSE_POSTGRES_PASSWORD=concourse_pass
     - CONCOURSE_POSTGRES_DATABASE=concourse
-    - CONCOURSE_EXTERNAL_URL
-    - CONCOURSE_BASIC_AUTH_USERNAME
-    - CONCOURSE_BASIC_AUTH_PASSWORD
-    - CONCOURSE_NO_REALLY_I_DONT_WANT_ANY_AUTH=true
+    - CONCOURSE_EXTERNAL_URL=https://concourse.yooser.org
+    - CONCOURSE_MAIN_TEAM_ALLOW_ALL_USERS=true
+    - CONCOURSE_ADD_LOCAL_USER=bwilson:${CONCOURSE_BWILSON_HASH}
     - CONCOURSE_WORKER_GARDEN_NETWORK
     - CONCOURSE_VAULT_URL=http://vault:8200/
     - CONCOURSE_VAULT_PATH_PREFIX=/concourse
-    - CONCOURSE_VAULT_CLIENT_TOKEN=rootToken-3434342
+    - CONCOURSE_VAULT_CLIENT_TOKEN=${CONCOURSE_VAULT_DEV_ROOT_TOKEN_ID}
+    networks:
+      - web
+      - default
+    labels:
+      - "traefik.docker.network=web"
+      - "traefik.enable=true"
+      - "traefik.concourse-web.frontend.rule=Host:concourse.yooser.org"
+      - "traefik.concourse-web.port=8080"
+      - "traefik.concourse-web.protocol=http"
 
   vault:
-    image: vault
-    ports: ["8200:8200"]
+    image: vault:0.11.0
     cap_add: ["IPC_LOCK"]
     environment:
-    - VAULT_DEV_ROOT_TOKEN_ID=rootToken-3434342
+    - VAULT_DEV_ROOT_TOKEN_ID=${CONCOURSE_VAULT_DEV_ROOT_TOKEN_ID}
     - VAULT_DEV_LISTEN_ADDRESS=0.0.0.0:8200
 
   rocketchat:
     image: rocketchat/rocket.chat:latest
     restart: unless-stopped
     volumes:
-      - ./uploads:/app/uploads
+      - ./data/rc/uploads:/app/uploads
     environment:
       - PORT=3000
       - ROOT_URL=http://localhost:3000
@@ -50,14 +58,12 @@ services:
       - MAIL_URL=smtp://smtp.email
     depends_on:
       - mongo
-    ports:
-      - 3000:3000
 
   mongo:
     image: mongo:3.2
     restart: unless-stopped
     volumes:
-     - ./data/db:/data/db
+     - ./data/rc/db:/data/db
     command: mongod --smallfiles --oplogSize 128 --replSet rs0 --storageEngine=mmapv1
 
   mongo-init-replica:
@@ -79,6 +85,17 @@ services:
     depends_on:
       - rocketchat
     volumes:
-      - ./scripts:/home/hubot/scripts
-    ports:
-      - 3001:8080
+      - ./data/rc/hubot/scripts:/home/hubot/scripts
+
+  admin:
+    build:
+      context: builds/admin/
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    command: sleep infinity
+    volumes:
+      - ./:/code
+
+networks:
+  web:
+    external: true
