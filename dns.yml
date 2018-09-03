@@ -1,0 +1,61 @@
+resource_types:
+  - name: http-api
+    type: docker-image
+    source:
+      repository: aequitas/http-api-resource
+      tag: latest
+
+resources:
+  - name: rocketchat
+    type: http-api
+    source:
+      uri: ((rocketchat_uri))
+      method: POST
+      json:
+        attachments:
+          - title: "Concourse: {BUILD_PIPELINE_NAME}{BUILD_JOB_NAME}"
+            author_name: "Concourse"
+            author_icon: "https://avatars3.githubusercontent.com/u/7809479?s=200&v=4"
+            text: "Build #: {BUILD_NAME} message: {message}!"
+            color: "{color}"
+
+  - name: dns-repo
+    type: git
+    source:
+      uri: https://gitlab.com/doubtingben/dns.git
+      branch: master
+
+jobs:
+  - name: dns
+    plan:
+    - get: dns-repo
+      trigger: true
+    - task: Validate octodns
+      config:
+        platform: linux
+        image_resource:
+          type: docker-image
+          source:
+            repository: doubtingben/concourse-octodns
+        params:
+          AWS_SECRET_ACCESS_KEY: ((AWS_SECRET_ACCESS_KEY))
+          AWS_ACCESS_KEY_ID: ((AWS_ACCESS_KEY_ID))
+        run:
+          path: sh
+          args:
+            - -exc
+            - |
+              cd dns-repo
+              octodns-validate --config-file=config/production.yaml
+        inputs:
+          - name: dns-repo
+      on_success:
+        put: rocketchat
+        params:
+          color: green
+          message: was a success
+      on_failure:
+        put: rocketchat
+        params:
+          color: red
+          message: failed horribly
