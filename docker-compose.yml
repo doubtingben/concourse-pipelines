@@ -12,8 +12,8 @@ services:
       - ./data/postgres/pgdata:/database
 
   concourse:
-    image: concourse/concourse:latest
-    command: web
+    image: concourse/concourse:4.1.0
+    command: quickstart
     privileged: true
     depends_on: [concourse-db]
     environment:
@@ -58,6 +58,15 @@ services:
       - MAIL_URL=smtp://smtp.email
     depends_on:
       - mongo
+    networks:
+      - web
+      - default
+    labels:
+      - "traefik.docker.network=web"
+      - "traefik.enable=true"
+      - "traefik.concourse-web.frontend.rule=Host:rc.yooser.org"
+      - "traefik.concourse-web.port=3000"
+      - "traefik.concourse-web.protocol=http"
 
   mongo:
     image: mongo:3.2
@@ -79,7 +88,7 @@ services:
       - ROCKETCHAT_URL=rocketchat:3000
       - ROCKETCHAT_ROOM=GENERAL
       - ROCKETCHAT_USER=bot
-      - ROCKETCHAT_PASSWORD=botpassword
+      - ROCKETCHAT_PASSWORD=${BOTPASSWORD}
       - BOT_NAME=bot
       - EXTERNAL_SCRIPTS=hubot-help,hubot-seen,hubot-links,hubot-diagnostics
     depends_on:
